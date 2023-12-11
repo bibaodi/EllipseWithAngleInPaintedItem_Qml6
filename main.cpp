@@ -23,6 +23,7 @@ int main(int argc, char *argv[])
 
 */
 //#include <QGui/QGuiApplication>
+#include <QDebug>
 #include <QPainter>
 #include <QPainterPath>
 #include <QQuickPaintedItem>
@@ -30,20 +31,70 @@ int main(int argc, char *argv[])
 
 class EllipseWidget : public QQuickPaintedItem {
 public:
-  EllipseWidget(QQuickItem *parent = nullptr) : QQuickPaintedItem(parent) {}
+  EllipseWidget(QQuickItem *parent = nullptr) : QQuickPaintedItem(parent) {
+    qDebug() << ("init~\n");
+    setAcceptHoverEvents(true);
+    setAcceptedMouseButtons(Qt::AllButtons);
+  }
+
+protected:
+  virtual void mousePressEvent(QMouseEvent *event) override { qDebug() << ("press~\n"); }
+  virtual void mouseMoveEvent(QMouseEvent *event) override { printf("mouse movex=%d\n", event->position().x()); }
+  virtual void mouseReleaseEvent(QMouseEvent *event) override { printf("mouse rx=%d\n", event->position().x()); }
+  virtual void mouseDoubleClickEvent(QMouseEvent *event) override {
+    printf("mouse dmovex=%d\n", event->position().x());
+  }
+  virtual void wheelEvent(QWheelEvent *ev) {
+    int x = ev->angleDelta().y();
+    x = x / 120;
+    m_angleA += x;
+    m_angleA = std::min(std::max(0, m_angleA), 360);
+    if (0 == m_angleA && x < 0) {
+      m_angleA = 360;
+    }
+    if (360 == m_angleA && x > 0) {
+      m_angleA = 0;
+    }
+    qDebug() << "x=" << x << ", A=" << m_angleA;
+    update();
+  }
 
 protected:
   void paint(QPainter *painter) {
+    printf("geometry:x=%f,w=%f", x(), width());
+    QRectF bbox(110, 110, 100, 60);
     QPainterPath ellipsePath;
-    ellipsePath.addEllipse(100, 100, 50, 30);
+    ellipsePath.addEllipse(bbox);
 
     QTransform transform;
-    transform.rotate(30);
+    QTransform trabefore, traBack;
+
+    qreal centerX = bbox.x() + bbox.width() / 2;
+    qreal centerY = bbox.y() + bbox.height() / 2;
+
+    trabefore.translate(-centerX, -centerY);
+    transform.rotate(m_angleA, Qt::ZAxis, 0);
 
     QPolygonF polygon = ellipsePath.toFillPolygon();
-    polygon = transform.map(polygon);
+    polygon = trabefore.map(polygon); // 1. tras to 00
+    polygon = transform.map(polygon); // 2. rotate
+
+    traBack.translate(centerX, centerY); // 3. tras back
+    polygon = traBack.map(polygon);
+
+    QString msg = QString("Angle={%1}Degree").arg(m_angleA);
+
+    QPen myPen;
+    myPen.setColor(Qt::blue);
+    myPen.setWidth(2);
+    painter->setPen(myPen);
     painter->drawPolygon(polygon);
+    myPen.setColor(Qt::red);
+    painter->setPen(myPen);
+    painter->drawRect(bbox);
+    painter->drawText(70, 70, msg);
   }
+  int m_angleA = 40;
 };
 
 int main(int argc, char *argv[]) {
@@ -56,7 +107,6 @@ int main(int argc, char *argv[]) {
       &engine, &QQmlApplicationEngine::objectCreationFailed, &app, []() { QCoreApplication::exit(-1); },
       Qt::QueuedConnection);
   engine.load(url);
-  EllipseWidget elli;
 
   return app.exec();
 }
