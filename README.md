@@ -1,1 +1,1 @@
-# this is a demo for draw ellipse with angle. --eton@231205.
+# this is a demo for draw ellipse with angle in Qt6.5 with QPaintedItem. --eton@231205.
